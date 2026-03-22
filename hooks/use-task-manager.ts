@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { api } from "@/lib/api"
-import { downloadFile } from "@/lib/utils/file"
+import { downloadFile, downloadFileFromUrl } from "@/lib/utils/file"
 import { POLL_INTERVAL } from "@/constants"
 import type { TaskStatus } from "@/types"
 
@@ -13,21 +13,12 @@ export const useTaskManager = () => {
   const [isUploading, setIsUploading] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [fileName, setFileName] = useState<string>("")
-  const [targetLanguage, setTargetLanguage] = useState<string>("")
+  const [, setTargetLanguage] = useState<string>("")
   const { toast } = useToast()
 
-  const getLanguageSuffix = (languageCode?: string) => {
-    const normalized = languageCode?.trim().toLowerCase()
-    if (!normalized) {
-      return "translated"
-    }
-
-    return normalized.split("-")[0] || "translated"
-  }
-
-  const buildDownloadFilename = (sourceFilename: string, languageCode?: string) => {
+  const buildDownloadFilename = (sourceFilename: string) => {
     const baseName = sourceFilename.replace(/\.rwmod$/i, "")
-    return `${baseName}_${getLanguageSuffix(languageCode)}.rwmod`
+    return `${baseName}_translated.rwmod`
   }
 
   const createTask = async (file: File, translateStyle: string, targetLanguage: string = "zh-CN") => {
@@ -135,24 +126,31 @@ export const useTaskManager = () => {
     if (!taskKey) return
 
     try {
-      const response = await api.downloadResult(taskKey)
+      const downloadFilename = buildDownloadFilename(filename || fileName)
+      const downloadUrl = await api.getDownloadResultUrl(taskKey)
 
-      if (response.ok) {
+      try {
+        downloadFileFromUrl(downloadUrl, downloadFilename)
+      } catch (error) {
+        console.error("Failed to trigger direct download, falling back to blob download:", error)
+        const response = await api.downloadResult(taskKey)
+
+        if (!response.ok) {
+          throw new Error("下载失败")
+        }
+
         const blob = await response.blob()
-        const downloadFilename = buildDownloadFilename(filename || fileName, targetLanguage)
         downloadFile(blob, downloadFilename)
-
-        toast({
-          title: "下载成功",
-          description: "汉化模组已保存到你的设备",
-        })
-      } else {
-        throw new Error("下载失败")
       }
+
+      toast({
+        title: "下载成功",
+        description: "汉化模组已开始下载",
+      })
     } catch (error) {
       toast({
         title: "下载失败",
-        description: "请稍后重试",
+        description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
       })
     }

@@ -295,7 +295,7 @@ export const api = {
     }
   },
 
-  async downloadResult(taskKey: string): Promise<Response> {
+  async getDownloadResultUrl(taskKey: string): Promise<string> {
     const response = await fetch(buildUrl(API_BASE_URL, `/v1/tasks/${encodeTaskKey(taskKey)}/result-url`), {
       method: "GET",
       headers: {
@@ -314,6 +314,11 @@ export const api = {
       throw new Error("未获取到下载链接")
     }
 
+    return downloadUrl
+  },
+
+  async downloadResult(taskKey: string): Promise<Response> {
+    const downloadUrl = await this.getDownloadResultUrl(taskKey)
     return fetch(downloadUrl, {
       method: "GET",
     })

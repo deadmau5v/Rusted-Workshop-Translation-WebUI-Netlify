@@ -18,11 +18,22 @@ export const formatFileSize = (bytes: number): string => {
 
 export const downloadFile = (blob: Blob, filename: string) => {
   const url = window.URL.createObjectURL(blob)
+  downloadFileFromUrl(url, filename)
+
+  // Revoke after the browser has consumed the object URL.
+  window.setTimeout(() => {
+    window.URL.revokeObjectURL(url)
+  }, 1000)
+}
+
+export const downloadFileFromUrl = (url: string, filename?: string) => {
   const a = document.createElement("a")
   a.href = url
-  a.download = filename
+  if (filename) {
+    a.download = filename
+  }
+  a.style.display = "none"
   document.body.appendChild(a)
   a.click()
-  window.URL.revokeObjectURL(url)
   document.body.removeChild(a)
 }
